@@ -1,0 +1,10 @@
+body {
+  background: linear-gradient(to bottom right, #2a537c, #c2d0de);
+  background-image: url("./img/bg_snow.png");
+  background-repeat: no-repeat;
+  background-position: left top;
+  background-size: cover;
+}
+canvas {
+  transform: scale(0.5) translateX(-50%) translateY(-50%);
+}

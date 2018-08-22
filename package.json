@@ -1,0 +1,29 @@
+{
+  "name": "OneC-Starter",
+  "version": "0.1.0",
+  "private": true,
+  "dependencies": {
+    "gsap": "^1.20.4",
+    "howler": "^2.0.9",
+    "jquery": "^3.3.1",
+    "node-sass-chokidar": "0.0.3",
+    "npm-run-all": "^4.1.1",
+    "pixi.js": "^4.8.1",
+    "pressure": "^2.1.2"
+  },
+  "devDependencies": {
+    "react-scripts": "^1.1.4",
+    "tinypng-webpack-plugin": "^1.0.1",
+    "zip-webpack-plugin": "^2.1.0"
+  },
+  "scripts": {
+    "build-css": "node-sass-chokidar --include-path ./src --include-path ./node_modules src/ -o src/",
+    "watch-css": "npm run build-css && node-sass-chokidar --include-path ./src --include-path ./node_modules src/ -o src/ --watch --recursive",
+    "start-js": "react-scripts start",
+    "start": "npm-run-all -p watch-css start-js",
+    "build": "npm run build-css && react-scripts build",
+    "test": "react-scripts test --env=jsdom",
+    "eject": "react-scripts eject"
+  },
+  "homepage": "."
+}
