@@ -29,7 +29,6 @@ var selectedOrb, pickedOrb;
 var canPick = true;
 //
 var hand;
-var handTween;
 var handGroup;
 var scale = 1;
 var emitter, emitter2;
@@ -39,8 +38,6 @@ var shockwave_count = 0;
 var filter;
 var filter_hilite, arr_sprite_hilite = [];
 var filter_lines, graphics_lines, container_lines, filter_lines_noise, filter_glitch, filter_glitch2;
-var suggestionFilter;
-var helpGraphic;
 var bt_help;
 var tween1, tween2, tween3, tween4, tween5, tween6, tween7, tween8, tween9, tween10, tween11, tween12, tween13;
 var logo, info, pretty_ugly;
@@ -51,6 +48,9 @@ var level_container;
 var cp_container, cp_good, cp_great, cp_amazing;
 var ui_container, txt_score;
 var level, lvl_texture1, lvl_texture2, lvl_texture3, lvl_texture4;
+var level_idx = 0;
+var levelIsOver;
+var alienImages, textureArray;
 class Visualisation extends EventEmitter {
     init(config) {
         app = new PIXI.Application(320, 568, {transparent: true, resolution: 2});
@@ -67,9 +67,7 @@ class Visualisation extends EventEmitter {
             this.update(delta);
         }.bind(this));
 
-
         drawField();
-
         scale = document.getElementById('creative_container').getAttribute('scale');
         $('#creative_container').on("touchstart touchmove", orbSelect);
         $('#creative_container').on("touchend", orbDeselect);
@@ -290,58 +288,38 @@ function addUI() {
     updateScore(0);
     console.log('', gameArray);
 }
-var level_idx = 0;
-function updateScore(s) {
-    txt_score.text = s + '/4';
-    if (s == 1) {
-        level_idx++;
-        targetColor = level_idx+1;
-
+function checkScore() {
+    if (score >= 2) {
+        score = 0;
+        levelIsOver = true;
+        // set all orbs for removal
         for(var i = 0; i < fieldSize; i++) {
             for (var j = 0; j < fieldSize_col; j++) {
-                let orbsprite = gameArray[i][j].orbSprite;
-                burst(orbsprite.x, orbsprite.y, gameArray[i][j].orbColor, orbsprite);
-                 setTimeout(()=> {
-                     orbsprite.filters = [];
-                     }, 2000);
+                removeMap[i][j] = 1;
             }
         }
-
-        TweenMax.to(orbGroup, 0.3, {alpha: 0});
-        setTimeout(()=> {
-            TweenMax.to(orbGroup, 0.3, {alpha: 1});
-            //arr_sprite_hilite = [];
-
-            score = 0;
-            updateScore(0);
-            console.log('level_idx', level_idx);
-            switch (level_idx) {
-                case 0:
-                    level.texture = lvl_texture1;
-                    break;
-                case 1:
-                    level.texture = lvl_texture2;
-                    break;
-                case 2:
-                    level.texture = lvl_texture3;
-                    break;
-                case 3:
-                    level.texture = lvl_texture4;
-                    break;
-            }
-
-            TweenMax.to(level_container, 0.5, {alpha: 1, y: 0, ease: Back.easeOut});
-
-
-
-            if (level_idx == 4) {
-                level_idx = 0;
-            }
-        }, 1000);
-
-        console.log('', gameArray);
-        //
     }
+}
+function updateScore(s) {
+    txt_score.text = s + '/4';
+}
+
+function nextLevel() {
+    reposOrbs();
+    canPick = true;
+    levelIsOver = false;
+    updateScore(0);
+
+    level_idx++;
+    targetColor = level_idx+1;
+    if (level_idx >= 4) {
+        level_idx = 0;
+        targetColor = 1;
+    }
+    // Show the level card
+    setTimeout(()=> {
+        animLevel();
+    }, 1000);
 }
 function addLines() {
     var displacement_sprite = PIXI.Sprite.fromImage(require('../img/940-bump.jpg'));
@@ -446,9 +424,7 @@ function checkBursts() {
             }
             avg_x = avg_x / arr_bursts.length;
             avg_y = avg_y / arr_bursts.length;
-
             shockwave_count = 0;
-            // console.log('', avg_x, avg_y);
             filter.center = [avg_x, avg_y];
             setTimeout(()=> {
                  hasShockwave = false;
@@ -476,11 +452,15 @@ function checkBursts() {
 function drawLevel() {
     level_container = new PIXI.Container();
     level_container.alpha = 0;
+
     app.stage.addChild(level_container);
     level = PIXI.Sprite.fromImage(require('../img/level1@2x.png'));
     level_container.addChild(level);
     level.interactive = true;
     level.buttonMode = true;
+    level.anchor.set(0.5);
+    level.x = 320 / 2;
+    level.y = 568 / 2;
     level.on('pointerdown', onStart);
     TweenMax.set(level_container, {y: -568});
 
@@ -488,13 +468,26 @@ function drawLevel() {
     lvl_texture2 = PIXI.Texture.fromImage(require('../img/level2@2x.png'));
     lvl_texture3 = PIXI.Texture.fromImage(require('../img/level3@2x.png'));
     lvl_texture4 = PIXI.Texture.fromImage(require('../img/level4@2x.png'));
-
-
-
-     setTimeout(()=> {
-            TweenMax.to(level_container, 0.3, {alpha: 1});
-            TweenMax.to(level_container, 0.5, {y: 0, ease: Back.easeOut});
-         }, 2000);
+    animLevel()
+}
+function animLevel() {
+    console.log('level idx', level_idx);
+    switch (level_idx) {
+        case 0:
+            level.texture = lvl_texture1;
+            break;
+        case 1:
+            level.texture = lvl_texture2;
+            break;
+        case 2:
+            level.texture = lvl_texture3;
+            break;
+        case 3:
+            level.texture = lvl_texture4;
+            break;
+    } 
+    TweenMax.to(level_container, 0.3, {alpha: 1});
+    TweenMax.set(level_container, {y: 0});
 }
 function onStart() {
     TweenMax.to(level_container, 0.3, {alpha: 0, y: -568});
@@ -555,6 +548,32 @@ function showCp(idx) {
 
          }, 500);
 }
+var sprite1_images, sprite2_images, sprite3_images, sprite4_images;
+var sprite1_array, sprite2_array, sprite3_array, sprite4_array;
+var texture_arrays;
+function createAnimSprites() {
+
+    sprite1_images = [require('../img/1b.png'), require('../img/1a.png')];
+    sprite2_images = [require('../img/2b.png'), require('../img/2a.png')];
+    sprite3_images = [require('../img/3b.png'), require('../img/3a.png')];
+    sprite4_images = [require('../img/4b.png'), require('../img/4a.png')];
+    sprite1_array = [];
+    sprite2_array = [];
+    sprite3_array = [];
+    sprite4_array = [];
+    for (let i=0; i < 2; i++)
+    {
+        let texture = PIXI.Texture.fromImage(sprite1_images[i]);
+        sprite1_array.push(texture);
+        texture = PIXI.Texture.fromImage(sprite2_images[i]);
+        sprite2_array.push(texture);
+        texture = PIXI.Texture.fromImage(sprite3_images[i]);
+        sprite3_array.push(texture);
+        texture = PIXI.Texture.fromImage(sprite4_images[i]);
+        sprite4_array.push(texture);
+    };
+    texture_arrays = [sprite1_array,sprite2_array,sprite3_array,sprite4_array];
+}
 function drawField(){
 
     handGroup = new PIXI.Container();
@@ -567,42 +586,28 @@ function drawField(){
     cp_container.y = 50;
     addCp();
 
-
     orbGroup.x = 40;
     orbGroup.y = 100;
 
-    let alienImages = [require('../img/1b.png'), require('../img/1a.png')];
-    let textureArray = [];
+    createAnimSprites();
+    reposOrbs();
 
-    for (let i=0; i < 2; i++)
-    {
-        let texture = PIXI.Texture.fromImage(alienImages[i]);
-        textureArray.push(texture);
-    };
-
-    /*let animatedSprite = new PIXI.extras.AnimatedSprite(textureArray);
-    orbGroup.addChild(animatedSprite);
-    animatedSprite.anchor.set(0.5);
-    animatedSprite.scale.x =  animatedSprite.scale.y = 0.5;
-    console.log('', animatedSprite.totalFrames)
-    setInterval(()=> {
-        if (Math.random() > 0.6) {
-            animatedSprite.gotoAndStop(2);
-             setTimeout(()=> {
-                 animatedSprite.gotoAndStop(1);
-                 }, (Math.random() * 300) + 100);
-        }
-    }, 1000);*/
-
-
+    selectedOrb = null;
+    hand = PIXI.Sprite.fromImage(require('../img/hand.png'));
+    hand.anchor.set(0, 0.5);
+    handGroup.addChild(hand);
+    hand.scale.set(0.3)
+    hand.visible = false;
+    orbGroup.x = (320 - orbGroup.width) / 2;
+    orbGroup.y = (568 - orbGroup.height) / 2 + 70;
+    window.showSuggestion = showSuggestion;
+}
+function reposOrbs() {
     for(var i = 0; i < fieldSize; i ++){
         gameArray[i] = [];
         for(var j = 0; j < fieldSize_col; j ++){
-            let orb = PIXI.Sprite.fromImage(require('../img/star.png'));
-            // let orb = new PIXI.extras.AnimatedSprite(textureArray);
-
-
-            
+            //let orb = PIXI.Sprite.fromImage(require('../img/star.png'));
+            let orb = new PIXI.extras.AnimatedSprite(sprite4_array);
 
             orb.x = orbSize * j + orbSize / 2;
             orb.y = orbSize * i + orbSize / 2;
@@ -610,23 +615,21 @@ function drawField(){
             orb.height = orbSize;
             orb.anchor.set(0.5, 1);
             orbGroup.addChild(orb);
-            var targScale =  orb.transform.scale.y;
             orb.alpha = 0;
-            console.log('', orb);
 
-
-             setTimeout(()=> {
-                 TweenMax.set(orb.scale, {y: 0.627, delay: 0.2});
-                 //TweenMax.set(orb.scale, {y: 0.3});
-                 TweenMax.to(orb, 0.3, {alpha: 1, delay: 0.5});
-                 }, 1000);
+            setTimeout(()=> {
+                TweenMax.to(orb, 0.3, {alpha: 1, delay: 0.5});
+            }, 1000);
 
             do{
                 var randomColor = Math.floor(Math.random() * orbColors) + 1;
                 orb.frame = randomColor;
+                
+                console.log('', randomColor);
+                // let texture = PIXI.Texture.fromImage(require('../img/0' + (randomColor) + '@2x.png'));
 
-                let texture = PIXI.Texture.fromImage(require('../img/0' + (randomColor) + '@2x.png'));
-                orb.texture = texture;
+                let texture = texture_arrays[randomColor-1];
+                orb.textures = texture;
 
                 gameArray[i][j] = {
                     orbColor: randomColor,
@@ -635,16 +638,6 @@ function drawField(){
             } while(isMatch(i, j));
         }
     }
-    selectedOrb = null;
-    hand = PIXI.Sprite.fromImage(require('../img/hand.png'));
-    hand.anchor.set(0, 0.5);
-    handGroup.addChild(hand);
-    hand.scale.set(0.3)
-    hand.visible = false;
-    console.log('', orbGroup.width);
-    orbGroup.x = (320 - orbGroup.width) / 2;
-    orbGroup.y = (568 - orbGroup.height) / 2 + 70;
-    window.showSuggestion = showSuggestion;
 }
 function flash(targ) {
     targ.filters = [filter_hilite];
@@ -884,8 +877,10 @@ function handleMatches(){
     }
     handleHorizontalMatches();
     handleVerticalMatches();
-    console.log('SCORE', score);
-    updateScore(score)
+    //console.log('SCORE', score);
+    updateScore(score);
+    checkScore();
+    //console.log('removeMap', removeMap);
     destroyOrbs();
     //console.log('', gameArray);
 }
@@ -980,9 +975,13 @@ function destroyOrbs(){
                         // burst(gameArray[i][j].orbSprite.x, gameArray[i][j].orbSprite.y-20)
                         destroyed --;
                         if(destroyed == 0){
-                            makeOrbsFall();
-                            if(fastFall){
-                                replenishField();
+                            if (levelIsOver) {
+                                nextLevel();
+                            } else {
+                                makeOrbsFall();
+                                if(fastFall){
+                                    replenishField();
+                                }
                             }
                         }
                     }});
@@ -1008,9 +1007,8 @@ function makeOrbsFall(){
                     }
 
                     var sprite = gameArray[i][j].orbSprite;
-                    var targScale =  sprite.transform.scale.x;
-                    tween6 = TweenMax.to(sprite.scale, 0.2, {y: targScale * 0.75, delay: 0.2});
-                    tween7 = TweenMax.to(sprite.scale, 0.8, {y: targScale, ease: Elastic.easeOut.config(1.5, 0.3), delay:0.4});
+                    tween6 = TweenMax.to(sprite.scale, 0.2, {y: 0.25, delay: 0.2});
+                    tween7 = TweenMax.to(sprite.scale, 0.8, {y: 0.3, ease: Elastic.easeOut.config(1.5, 0.3), delay:0.4});
 
                     tween8 = TweenMax.to(sprite, fallSpeed, {
                         y: sprite.y + fallTiles * orbSize,
@@ -1028,7 +1026,7 @@ function makeOrbsFall(){
                                 }
                             }
                         }
-                    })
+                    });
 
                     fallen ++;
 
@@ -1044,7 +1042,6 @@ function makeOrbsFall(){
 
     if(fallen == 0){
         replenishField();
-
     }
 }
 
@@ -1065,20 +1062,20 @@ function replenishField(){
 
             for(var i = 0; i < emptySpots; i++){
 
-                let orb = PIXI.Sprite.fromImage(require('../img/star.png'));
+                let orb = new PIXI.extras.AnimatedSprite(sprite4_array);
+
                 orb.x = orbSize * j + orbSize / 2;
-                // console.log('i', i);
                 orb.y = -40 * (emptySpots-i);
-                orb.alpha = 0;
                 orb.width = orbSize;
                 orb.height = orbSize;
                 orb.anchor.set(0.5, 1);
                 orbGroup.addChild(orb);
+                orb.alpha = 0;
+
 
                 var randomColor = Math.floor(Math.random() * orbColors) + 1;
-
-                let texture = PIXI.Texture.fromImage(require('../img/0' + (randomColor) + '@2x.png'));
-                orb.texture = texture;
+                let texture = texture_arrays[randomColor-1];
+                orb.textures = texture;
 
                 gameArray[i][j] = {
                     orbColor: randomColor,
@@ -1087,8 +1084,8 @@ function replenishField(){
 
                 var sprite = gameArray[i][j].orbSprite;
                 var targScale =  sprite.transform.scale.x;
-                tween9 = TweenMax.to(sprite.scale, 0.1, {y: targScale * 0.75, delay: 0.2});
-                tween10 = TweenMax.to(sprite.scale, 0.8, {y: targScale, ease: Elastic.easeOut.config(1.5, 0.3), delay:0.3 });
+                tween9 = TweenMax.to(sprite.scale, 0.1, {y: 0.25, delay: 0.2});
+                tween10 = TweenMax.to(sprite.scale, 0.8, {y: 0.3, ease: Elastic.easeOut.config(1.5, 0.3), delay:0.3 });
 
                 tween11 = TweenMax.to(gameArray[i][j].orbSprite, fallSpeed, {
                     y: orbSize * i + orbSize / 2, ease: ((i == emptySpots-1) ? Power2.easeIn : Power2.easeIn), alpha: 1,
