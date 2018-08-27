@@ -1,7 +1,7 @@
 /**
  * Created by cchurn16 on 11/28/17.
  */
-/*global Quad Bounce Sine Elastic Expo Power2 PIXI*/
+/*global Quad Bounce Back Sine Elastic Expo Power2 PIXI*/
 import {EventEmitter} from 'events';
 // import * as PIXI from 'pixi.js'
 import TweenMax from 'gsap';
@@ -12,10 +12,10 @@ import * as Maths from '../core/Maths';
 let app, bunny, boardContainer;
 
 var game;
-var fieldSize = 8;
-var fieldSize_col = 5;
+var fieldSize = 6;
+var fieldSize_col = 4;
 var orbColors = 4;
-var orbSize = 50;
+var orbSize = 60;
 //
 var swapSpeed = 0.2;
 var fallSpeed = 0.35;
@@ -32,7 +32,7 @@ var hand;
 var handTween;
 var handGroup;
 var scale = 1;
-var emitter;
+var emitter, emitter2;
 var arr_bursts = [];
 var count = 0;
 var shockwave_count = 0;
@@ -43,6 +43,14 @@ var suggestionFilter;
 var helpGraphic;
 var bt_help;
 var tween1, tween2, tween3, tween4, tween5, tween6, tween7, tween8, tween9, tween10, tween11, tween12, tween13;
+var logo, info, pretty_ugly;
+var score = 0;
+var targetColor = 1;
+var flash_effect;
+var level_container;
+var cp_container, cp_good, cp_great, cp_amazing;
+var ui_container, txt_score;
+var level, lvl_texture1, lvl_texture2, lvl_texture3, lvl_texture4;
 class Visualisation extends EventEmitter {
     init(config) {
         app = new PIXI.Application(320, 568, {transparent: true, resolution: 2});
@@ -52,7 +60,7 @@ class Visualisation extends EventEmitter {
         bunny.anchor.set(0.5);
         bunny.x = 40;
         bunny.y = app.screen.height / 2;
-        app.stage.addChild(bunny);
+        // app.stage.addChild(bunny);
         bunny.interactive = true;
         bunny.buttonMode = true;
         app.ticker.add(function(delta) {
@@ -61,6 +69,7 @@ class Visualisation extends EventEmitter {
 
 
         drawField();
+
         scale = document.getElementById('creative_container').getAttribute('scale');
         $('#creative_container').on("touchstart touchmove", orbSelect);
         $('#creative_container').on("touchend", orbDeselect);
@@ -70,11 +79,11 @@ class Visualisation extends EventEmitter {
         app.stage.addChild(container);
         app.stage.addChild(container_lines);
         bt_help = PIXI.Sprite.fromImage(require('../img/help_button.png'));
-        bt_help.width = 50;
-        bt_help.height = 50;
+        bt_help.width = 80;
+        bt_help.height = 80;
         bt_help.anchor.set(0, 1);
-        bt_help.x = 10;
-        bt_help.y = app.screen.height -10;
+        bt_help.x = -10;
+        bt_help.y = app.screen.height + 5;
         app.stage.addChild(bt_help);
         bt_help.interactive = true;
         bt_help.buttonMode = true;
@@ -137,6 +146,64 @@ class Visualisation extends EventEmitter {
                 "angleStart": 0
             }
         );
+        emitter2 = new PIXI.particles.Emitter(
+            container,
+            // The collection of particle images to use
+            [PIXI.Texture.fromImage(require('../img/star.png'))],
+            {
+                "alpha": {
+                    "start": 0.8,
+                    "end": 0.1
+                },
+                "scale": {
+                    "start": 0.05,
+                    "end": 0.1,
+                    "minimumScaleMultiplier": 1
+                },
+                "color": {
+                    "start": "#ffffff",
+                    "end": "#ffffff"
+                },
+                "speed": {
+                    "start": 200,
+                    "end": 100,
+                    "minimumSpeedMultiplier": 1
+                },
+                "acceleration": {
+                    "x": 0,
+                    "y": 0
+                },
+                "maxSpeed": 0,
+                "startRotation": {
+                    "min": 0,
+                    "max": 360
+                },
+                "noRotation": false,
+                "rotationSpeed": {
+                    "min": 0,
+                    "max": 0
+                },
+                "lifetime": {
+                    "min": 0.1,
+                    "max": 0.5
+                },
+                "blendMode": "normal",
+                "frequency": 0.008,
+                "emitterLifetime": 0.21,
+                "maxParticles": 1000,
+                "pos": {
+                    "x": 0,
+                    "y": 0
+                },
+                "addAtBack": false,
+                "spawnType": "circle",
+                "spawnCircle": {
+                    "x": 0,
+                    "y": 0,
+                    "r": 10
+                }
+            }
+        );
 
         // Start emitting
         // Start the update
@@ -156,17 +223,37 @@ class Visualisation extends EventEmitter {
         filter.resolution = 2;
         app.stage.filters = [filter];
         filter_hilite = new PIXI.filters.GlowFilter(10, 2, 1, 0xFFFFFF, 1);
+        filter_hilite.resolution = 2;
         filter_lines = new PIXI.filters.GlowFilter(10, 4, 1, 0xFFFFFF, 1);
         filter_lines_noise = new PIXI.filters.NoiseFilter(0.4, 2);
         function onClick () {
             showSuggestion();
         }
         addLines();
+
+        logo = PIXI.Sprite.fromImage(require('../img/logo@2x.png'));
+        logo.x = 0;
+        logo.y = 0;
+        app.stage.addChild(logo);
+        info = PIXI.Sprite.fromImage(require('../img/info@2x.png'));
+        info.x = 0;
+        info.y = 0;
+        info.width = 320;
+        info.height = 568;
+        app.stage.addChild(info);
+        pretty_ugly = PIXI.Sprite.fromImage(require('../img/pretty_ugly@2x.png'));
+        pretty_ugly.x = 0;
+        pretty_ugly.y = 20;
+        // app.stage.addChild(pretty_ugly);
+
+        addUI();
+        drawLevel();
     }
 
     update(delta) {
         bunny.rotation += 0.05 * delta;
         emitter.update(delta * 0.01);
+        emitter2.update(delta * 0.01);
         count += 0.01;
         shockwave_count += 0.005;
         filter.time = shockwave_count;
@@ -178,6 +265,83 @@ class Visualisation extends EventEmitter {
         filter_glitch2.scale.y =  Math.cos(count*5) * Math.random() * 2;
     }
 
+}
+function addUI() {
+    ui_container = new PIXI.Container;
+    app.stage.addChild(ui_container);
+    var gfx_score = new PIXI.Graphics();
+    gfx_score.resolution = 2;
+    ui_container.addChild(gfx_score);
+    gfx_score.lineStyle(3, 0x6a1867, 1);
+    gfx_score.beginFill(0xffd0ef, 1);
+    gfx_score.drawRoundedRect(202, 517, 95, 30, 10);
+    gfx_score.endFill();
+
+    var style = new PIXI.TextStyle({
+        fontFamily: 'Gill Sans',
+        fontSize: 24,
+        fontWeight: 'bold',
+        fill: ['#6a1867'],
+    });
+    txt_score = new PIXI.Text('', style);
+    txt_score.x = 240;
+    txt_score.y = 518;
+    ui_container.addChild(txt_score);
+    updateScore(0);
+    console.log('', gameArray);
+}
+var level_idx = 0;
+function updateScore(s) {
+    txt_score.text = s + '/4';
+    if (s == 1) {
+        level_idx++;
+        targetColor = level_idx+1;
+
+        for(var i = 0; i < fieldSize; i++) {
+            for (var j = 0; j < fieldSize_col; j++) {
+                let orbsprite = gameArray[i][j].orbSprite;
+                burst(orbsprite.x, orbsprite.y, gameArray[i][j].orbColor, orbsprite);
+                 setTimeout(()=> {
+                     orbsprite.filters = [];
+                     }, 2000);
+            }
+        }
+
+        TweenMax.to(orbGroup, 0.3, {alpha: 0});
+        setTimeout(()=> {
+            TweenMax.to(orbGroup, 0.3, {alpha: 1});
+            //arr_sprite_hilite = [];
+
+            score = 0;
+            updateScore(0);
+            console.log('level_idx', level_idx);
+            switch (level_idx) {
+                case 0:
+                    level.texture = lvl_texture1;
+                    break;
+                case 1:
+                    level.texture = lvl_texture2;
+                    break;
+                case 2:
+                    level.texture = lvl_texture3;
+                    break;
+                case 3:
+                    level.texture = lvl_texture4;
+                    break;
+            }
+
+            TweenMax.to(level_container, 0.5, {alpha: 1, y: 0, ease: Back.easeOut});
+
+
+
+            if (level_idx == 4) {
+                level_idx = 0;
+            }
+        }, 1000);
+
+        console.log('', gameArray);
+        //
+    }
 }
 function addLines() {
     var displacement_sprite = PIXI.Sprite.fromImage(require('../img/940-bump.jpg'));
@@ -236,11 +400,11 @@ function burst(x,y, color, sprite) {
 function getColor(color) {
     switch(color) {
         case 1:
-            return {r: 255 , g: 0, b: 0};
+            return {r: 248 , g: 185, b: 255};
         case 2:
-            return {r: 255, g: 255, b: 0};
+            return {r: 0, g: 255, b: 18};
         case 3:
-            return {r: 106, g: 255, b: 120};
+            return {r: 255, g: 225, b: 61};
         case 4:
             return {r: 0, g: 255, b: 255};
         case 5:
@@ -254,24 +418,37 @@ var hasShockwave;
 function checkBursts() {
 
     if (arr_bursts.length) {
-        if (filter && arr_bursts.length > 3 && !hasShockwave) {
-            console.dir(arr_bursts);
+        if (filter && arr_bursts.length > 2 && !hasShockwave) {
+            // console.dir(arr_bursts);
+
             hasShockwave = true;
 
             var avg_x = 0, avg_y = 0;
             for (var i=0; i<arr_bursts.length; i++) {
-                console.log('', arr_bursts[i]);
+                // console.log('', arr_bursts[i]);
                 avg_x += arr_bursts[i].xpos + 40;
                 avg_y += arr_bursts[i].ypos;
                 if (i<arr_bursts.length-1) {
-                    moveLine(arr_bursts[i].sprite, arr_bursts[i+1].sprite);
+                    if (flash_effect) {
+                        if (arr_bursts.length==3) {
+                            showCp(1);
+                        }
+                        if (arr_bursts.length==4) {
+                            showCp(2);
+                        }
+                        if (arr_bursts.length>=5) {
+                            showCp(3);
+                        }
+
+                        moveLine(arr_bursts[i].sprite, arr_bursts[i + 1].sprite);
+                    }
                 }
             }
             avg_x = avg_x / arr_bursts.length;
             avg_y = avg_y / arr_bursts.length;
 
             shockwave_count = 0;
-            console.log('', avg_x, avg_y);
+            // console.log('', avg_x, avg_y);
             filter.center = [avg_x, avg_y];
             setTimeout(()=> {
                  hasShockwave = false;
@@ -284,37 +461,166 @@ function checkBursts() {
         emitter.spawnPos.x = targ.xpos + orbGroup.x;
         emitter.spawnPos.y = targ.ypos + orbGroup.y - 20;
 
-
-
+        emitter2.emit = false;
+        // emitter2.startColor.value = getColor(targ.col);
+        emitter2.spawnPos.x = targ.xpos + orbGroup.x;
+        emitter2.spawnPos.y = targ.ypos + orbGroup.y - 20;
+        
         filter_to =  setTimeout(()=> {
             //app.stage.filters = [];
             }, 1000);
         emitter.emit = true;
+        emitter2.emit = true;
     }
 }
+function drawLevel() {
+    level_container = new PIXI.Container();
+    level_container.alpha = 0;
+    app.stage.addChild(level_container);
+    level = PIXI.Sprite.fromImage(require('../img/level1@2x.png'));
+    level_container.addChild(level);
+    level.interactive = true;
+    level.buttonMode = true;
+    level.on('pointerdown', onStart);
+    TweenMax.set(level_container, {y: -568});
 
+    lvl_texture1 = PIXI.Texture.fromImage(require('../img/level1@2x.png'));
+    lvl_texture2 = PIXI.Texture.fromImage(require('../img/level2@2x.png'));
+    lvl_texture3 = PIXI.Texture.fromImage(require('../img/level3@2x.png'));
+    lvl_texture4 = PIXI.Texture.fromImage(require('../img/level4@2x.png'));
+
+
+
+     setTimeout(()=> {
+            TweenMax.to(level_container, 0.3, {alpha: 1});
+            TweenMax.to(level_container, 0.5, {y: 0, ease: Back.easeOut});
+         }, 2000);
+}
+function onStart() {
+    TweenMax.to(level_container, 0.3, {alpha: 0, y: -568});
+}
+function addCp() {
+    cp_good = PIXI.Sprite.fromImage(require('../img/cp_good.png'));
+    cp_good.x = 160;
+    cp_good.y = 236;
+    cp_good.width = 320;
+    cp_good.height = 568;
+    cp_container.addChild(cp_good);
+    cp_great = PIXI.Sprite.fromImage(require('../img/cp_great.png'));
+    cp_great.x = 160;
+    cp_great.y = 236;
+    cp_great.width = 320;
+    cp_great.height = 568;
+    cp_container.addChild(cp_great);
+    cp_amazing = PIXI.Sprite.fromImage(require('../img/cp_amazing.png'));
+    cp_amazing.x = 160;
+    cp_amazing.y = 236;
+    cp_amazing.width = 320;
+    cp_amazing.height = 568;
+    cp_container.addChild(cp_amazing);
+    cp_good.alpha = 0;
+    cp_great.alpha = 0;
+    cp_amazing.alpha = 0;
+    cp_good.anchor.set(0.5);
+    cp_great.anchor.set(0.5);
+    cp_amazing.anchor.set(0.5);
+}
+function showCp(idx) {
+    var targ;
+    //cp_container.alpha = 1;
+    switch (idx) {
+        case 1:
+            cp_good.alpha = 1;
+            cp_great.alpha = 0;
+            cp_amazing.alpha = 0;
+            targ = cp_good;
+            break;
+        case 2:
+            cp_good.alpha = 0;
+            cp_great.alpha = 1;
+            cp_amazing.alpha = 0;
+            targ = cp_great;
+            break;
+        case 3:
+            cp_good.alpha = 0;
+            cp_great.alpha = 0;
+            cp_amazing.alpha = 1;
+            targ = cp_amazing;
+            break;
+    }
+    targ.scale.x = targ.scale.y = 0.5;
+    TweenMax.to(targ.scale, 1, {x: 0.7, y: 0.7});
+    TweenMax.to(targ, 1, { alpha: 0});
+     setTimeout(()=> {
+
+         }, 500);
+}
 function drawField(){
 
     handGroup = new PIXI.Container();
     orbGroup = new PIXI.Container();
+    cp_container = new PIXI.Container();
+
     app.stage.addChild(orbGroup);
     app.stage.addChild(handGroup);
+    app.stage.addChild(cp_container);
+    cp_container.y = 50;
+    addCp();
+
+
     orbGroup.x = 40;
     orbGroup.y = 100;
+
+    let alienImages = [require('../img/1b.png'), require('../img/1a.png')];
+    let textureArray = [];
+
+    for (let i=0; i < 2; i++)
+    {
+        let texture = PIXI.Texture.fromImage(alienImages[i]);
+        textureArray.push(texture);
+    };
+
+    /*let animatedSprite = new PIXI.extras.AnimatedSprite(textureArray);
+    orbGroup.addChild(animatedSprite);
+    animatedSprite.anchor.set(0.5);
+    animatedSprite.scale.x =  animatedSprite.scale.y = 0.5;
+    console.log('', animatedSprite.totalFrames)
+    setInterval(()=> {
+        if (Math.random() > 0.6) {
+            animatedSprite.gotoAndStop(2);
+             setTimeout(()=> {
+                 animatedSprite.gotoAndStop(1);
+                 }, (Math.random() * 300) + 100);
+        }
+    }, 1000);*/
 
 
     for(var i = 0; i < fieldSize; i ++){
         gameArray[i] = [];
         for(var j = 0; j < fieldSize_col; j ++){
-            //var orb = game.add.sprite(orbSize * j + orbSize / 2, orbSize * i + orbSize / 2, "orbs");
-
             let orb = PIXI.Sprite.fromImage(require('../img/star.png'));
+            // let orb = new PIXI.extras.AnimatedSprite(textureArray);
+
+
+            
+
             orb.x = orbSize * j + orbSize / 2;
             orb.y = orbSize * i + orbSize / 2;
             orb.width = orbSize;
             orb.height = orbSize;
             orb.anchor.set(0.5, 1);
             orbGroup.addChild(orb);
+            var targScale =  orb.transform.scale.y;
+            orb.alpha = 0;
+            console.log('', orb);
+
+
+             setTimeout(()=> {
+                 TweenMax.set(orb.scale, {y: 0.627, delay: 0.2});
+                 //TweenMax.set(orb.scale, {y: 0.3});
+                 TweenMax.to(orb, 0.3, {alpha: 1, delay: 0.5});
+                 }, 1000);
+
             do{
                 var randomColor = Math.floor(Math.random() * orbColors) + 1;
                 orb.frame = randomColor;
@@ -334,10 +640,10 @@ function drawField(){
     hand.anchor.set(0, 0.5);
     handGroup.addChild(hand);
     hand.scale.set(0.3)
-    hand.visible = true;
+    hand.visible = false;
     console.log('', orbGroup.width);
     orbGroup.x = (320 - orbGroup.width) / 2;
-    orbGroup.y = (568 - orbGroup.height) / 2;
+    orbGroup.y = (568 - orbGroup.height) / 2 + 70;
     window.showSuggestion = showSuggestion;
 }
 function flash(targ) {
@@ -406,12 +712,10 @@ function orbSelect(e){
         //console.log('', mousePosition);
 
         hand.visible = false;
-        /*handTween.stop();*/
-        // console.log('', mousePosition.y);
         var touchy = mousePosition.y - orbGroup.y;
         var touchx =  mousePosition.x - orbGroup.x;
-        console.log('', touchy);
-        var row = Math.floor((touchy - (orbGroup.y)) / orbSize) + 1;
+        //console.log('', touchy);
+        var row = Math.floor((touchy - (orbGroup.y)) / orbSize) + 2;
         var col = Math.floor((touchx - orbGroup.x) / orbSize);
         row +=1;
         col +=1;
@@ -580,6 +884,8 @@ function handleMatches(){
     }
     handleHorizontalMatches();
     handleVerticalMatches();
+    console.log('SCORE', score);
+    updateScore(score)
     destroyOrbs();
     //console.log('', gameArray);
 }
@@ -595,7 +901,21 @@ function handleVerticalMatches(){
             }
             if(gemAt(j, i).orbColor != currentColor || j == fieldSize - 1){
                 if(colorStreak >= 3){
+                    console.log('currentColor', currentColor);
+                    console.log('targetcolor', targetColor);
                     //console.log("VERTICAL :: Length = "+colorStreak + " :: Start = ("+startStreak+","+i+") :: Color = "+currentColor);
+                    if (currentColor == targetColor) {
+                        console.log('***** SCORE', );
+                        flash_effect = true;
+                        score++;
+                        setTimeout(()=> {
+                            flash_effect = false;
+                        }, 400);
+                    } else {
+
+                        //flash_effect = false;
+                    }
+
                     for(var k = 0; k < colorStreak; k++){
                         removeMap[startStreak + k][i] ++;
                     }
@@ -620,6 +940,16 @@ function handleHorizontalMatches(){
             }
             if(gemAt(i, j).orbColor != currentColor || j == fieldSize - 1){
                 if(colorStreak >= 3){
+                    if (currentColor == targetColor) {
+                        console.log('***** SCORE', );
+                        flash_effect = true;
+                        score++;
+                         setTimeout(()=> {
+                                flash_effect = false;
+                             }, 400);
+                    } else {
+                        //flash_effect = false;
+                    }
                     //console.log("HORIZONTAL :: Length = "+colorStreak + " :: Start = ("+i+","+startStreak+") :: Color = "+currentColor);
                     for(var k = 0; k < colorStreak; k++){
                         removeMap[i][startStreak + k] ++;
