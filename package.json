@@ -3,12 +3,16 @@
   "version": "0.1.0",
   "private": true,
   "dependencies": {
+    "ajv": "^6.5.3",
     "gsap": "^2.0.1",
     "howler": "^2.0.9",
     "jquery": "^3.3.1",
+    "load-js": "^3.0.2",
     "node-sass-chokidar": "0.0.3",
     "npm-run-all": "^4.1.1",
-    "pixi.js": "^4.8.1",
+    "pixi-filters": "^2.6.1",
+    "pixi-particles": "^3.1.0",
+    "pixi.js": "^4.8.2",
     "pressure": "^2.1.2"
   },
   "devDependencies": {

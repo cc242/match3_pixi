@@ -30,7 +30,8 @@ body {
   top: 50% !important;
   overflow: hidden; }
   .rescale_reposition canvas {
-    position: absolute; }
+    position: absolute;
+    left: 0; }
 
 .bt_close {
   position: absolute;

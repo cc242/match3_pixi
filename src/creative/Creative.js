@@ -1,6 +1,8 @@
 /*global PIXI*/
 import Visualisation from './Visualisation';
 import Layout from '../core/Layout';
+import * as PIXI from 'pixi.js'
+import loadJS from 'load-js';
 
 var creative = {
     defaults: {
@@ -54,8 +56,24 @@ var creative = {
                 }
             }
         }
-
+        var level_bg = new PIXI.Graphics();
+        window.createBg = function() {
+            // level dark background
+            window.hideBg();
+            level_bg.fillColor = 0x004a69;
+            level_bg.fillAlpha = 0.55;
+            level_bg.drawRect(0,0,window.innerWidth,window.innerHeight);
+            bg.stage.addChild(level_bg);
+        };
+        window.showBg = function() {
+            level_bg.alpha = 1;
+        };
+        window.hideBg = function() {
+            level_bg.alpha = 0;
+        };
         createFlowers();
+        window.createBg();
+
 
         bg.ticker.add(function(delta) {
             for (let i=0; i<arr_flowers_anim.length; i++) {
@@ -74,5 +92,5 @@ var creative = {
     }
 };
 
-
+creative.init({container:'#creative_container', width: 320, height: 568});
 export default creative;

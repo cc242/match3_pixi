@@ -3,13 +3,13 @@
  */
 /*global Quad Bounce Back Sine Elastic Expo Power2 PIXI*/
 import {EventEmitter} from 'events';
-// import * as PIXI from 'pixi.js'
 import TweenMax from 'gsap';
+import * as PIXI from 'pixi.js'
 import $ from 'jquery';
-import * as Effects from '../core/Effects';
 import * as Maths from '../core/Maths';
-
-let app, bunny, boardContainer;
+import particles from 'pixi-particles';
+import * as filters from 'pixi-filters';
+let app;
 
 var game;
 var fieldSize = 6;
@@ -25,8 +25,11 @@ var fastFall = true;
 var gameArray = [];
 var removeMap = [];
 var orbGroup;
-var selectedOrb, pickedOrb;
+var selectedOrb;
+var pickedOrb;
+var orb1;
 var canPick = true;
+var mouseIsDown;
 //
 var hand;
 var handGroup;
@@ -35,6 +38,7 @@ var emitter, emitter2;
 var arr_bursts = [];
 var count = 0;
 var shockwave_count = 0;
+var hasShockwave;
 var filter;
 var filter_hilite, arr_sprite_hilite = [];
 var filter_lines, graphics_lines, container_lines, filter_lines_noise, filter_glitch, filter_glitch2;
@@ -50,33 +54,34 @@ var ui_container, txt_score;
 var level, lvl_texture1, lvl_texture2, lvl_texture3, lvl_texture4;
 var level_idx = 0;
 var levelIsOver;
-var alienImages, textureArray;
+var sprite1_images, sprite2_images, sprite3_images, sprite4_images;
+var sprite1_array, sprite2_array, sprite3_array, sprite4_array;
+var texture_arrays;
+var anim_sprites, anim_sprites_id;
+var scoreOrb;
+var targetScore = 4;
 class Visualisation extends EventEmitter {
     init(config) {
         app = new PIXI.Application(320, 568, {transparent: true, resolution: 2});
-        //PIXI.settings.SCALE_MODE = PIXI.SCALE_MODES.NEAREST;
         document.getElementById('creative_container').appendChild(app.view);
-        bunny = PIXI.Sprite.fromImage(require('../img/star.png'));
-        bunny.anchor.set(0.5);
-        bunny.x = 40;
-        bunny.y = app.screen.height / 2;
-        // app.stage.addChild(bunny);
-        bunny.interactive = true;
-        bunny.buttonMode = true;
         app.ticker.add(function(delta) {
             this.update(delta);
         }.bind(this));
 
         drawField();
         scale = document.getElementById('creative_container').getAttribute('scale');
-        $('#creative_container').on("touchstart touchmove", orbSelect);
-        $('#creative_container').on("touchend", orbDeselect);
+        $('#creative_container').on("mousedown touchstart", mouseDown);
+        $('#creative_container').on("mouseleave", mouseUp);
+        $('#creative_container').on("mouseup touchend", mouseUp);
+        $('#creative_container').on("touchstart touchmove mousemove", orbSelect);
+        $('#creative_container').on("touchend mouseup", orbDeselect);
 
         var container = new PIXI.Container;
         container_lines = new PIXI.Container;
         app.stage.addChild(container);
         app.stage.addChild(container_lines);
         bt_help = PIXI.Sprite.fromImage(require('../img/help_button.png'));
+        bt_help.alpha = 0;
         bt_help.width = 80;
         bt_help.height = 80;
         bt_help.anchor.set(0, 1);
@@ -203,26 +208,19 @@ class Visualisation extends EventEmitter {
             }
         );
 
-        // Start emitting
-        // Start the update
         setInterval(()=> {
             checkBursts();
-        }, 40)
-
-        function animate() {
-
-        }
-
-        filter = new PIXI.filters.ShockwaveFilter();
+        }, 40);
+        filter = new filters.ShockwaveFilter();
         filter.amplitude = 5;
         filter.wavelength = 120;
         filter.brightness = 1;
         filter.radius = 160;
         filter.resolution = 2;
         app.stage.filters = [filter];
-        filter_hilite = new PIXI.filters.GlowFilter(10, 2, 1, 0xFFFFFF, 1);
+        filter_hilite = new filters.GlowFilter(10, 2, 1, 0xFFFFFF, 1);
         filter_hilite.resolution = 2;
-        filter_lines = new PIXI.filters.GlowFilter(10, 4, 1, 0xFFFFFF, 1);
+        filter_lines = new filters.GlowFilter(10, 4, 1, 0xFFFFFF, 1);
         filter_lines_noise = new PIXI.filters.NoiseFilter(0.4, 2);
         function onClick () {
             showSuggestion();
@@ -246,10 +244,12 @@ class Visualisation extends EventEmitter {
 
         addUI();
         drawLevel();
+        setInterval(()=> {
+            animOrbs()
+        }, 200)
     }
 
     update(delta) {
-        bunny.rotation += 0.05 * delta;
         emitter.update(delta * 0.01);
         emitter2.update(delta * 0.01);
         count += 0.01;
@@ -262,11 +262,11 @@ class Visualisation extends EventEmitter {
         filter_glitch2.scale.x =  Math.sin(count*5) * Math.random() * 2;
         filter_glitch2.scale.y =  Math.cos(count*5) * Math.random() * 2;
     }
-
 }
 function addUI() {
     ui_container = new PIXI.Container;
     app.stage.addChild(ui_container);
+    ui_container.alpha = 0;
     var gfx_score = new PIXI.Graphics();
     gfx_score.resolution = 2;
     ui_container.addChild(gfx_score);
@@ -285,11 +285,26 @@ function addUI() {
     txt_score.x = 240;
     txt_score.y = 518;
     ui_container.addChild(txt_score);
+
+    // add sprite to score
+    scoreOrb = new PIXI.extras.AnimatedSprite(sprite1_array);
+    scoreOrb.x = 210;
+    scoreOrb.y = 560;
+    scoreOrb.width = orbSize + 5;
+    scoreOrb.height = orbSize + 5;
+    scoreOrb.anchor.set(0.5, 1);
+    ui_container.addChild(scoreOrb);
+    setTimeout(()=> {
+        scoreOrb.gotoAndStop(1);
+    }, 1000);
+    scoreOrb.alpha = 1;
+    anim_sprites[anim_sprites_id++] = scoreOrb;
+
     updateScore(0);
     console.log('', gameArray);
 }
 function checkScore() {
-    if (score >= 2) {
+    if (score >= targetScore) {
         score = 0;
         levelIsOver = true;
         // set all orbs for removal
@@ -301,7 +316,7 @@ function checkScore() {
     }
 }
 function updateScore(s) {
-    txt_score.text = s + '/4';
+    txt_score.text = s + '/' + targetScore;
 }
 
 function nextLevel() {
@@ -361,7 +376,6 @@ function moveLine(spr1, spr2) {
     glow(spr2);
 }
 function clearLines() {
-
     tween1 = TweenMax.to(graphics_lines, 0.3, {alpha: 0, delay: 0.4, onComplete: function () {
             graphics_lines.clear();
             graphics_lines.lineStyle(0.5, 0xd2ff00, 1);
@@ -391,19 +405,13 @@ function getColor(color) {
             return {r: 255, g: 255, b: 255};
     }
 }
-var filter_to;
-var hasShockwave;
 function checkBursts() {
 
     if (arr_bursts.length) {
         if (filter && arr_bursts.length > 2 && !hasShockwave) {
-            // console.dir(arr_bursts);
-
-            hasShockwave = true;
-
+           hasShockwave = true;
             var avg_x = 0, avg_y = 0;
             for (var i=0; i<arr_bursts.length; i++) {
-                // console.log('', arr_bursts[i]);
                 avg_x += arr_bursts[i].xpos + 40;
                 avg_y += arr_bursts[i].ypos;
                 if (i<arr_bursts.length-1) {
@@ -429,7 +437,6 @@ function checkBursts() {
             setTimeout(()=> {
                  hasShockwave = false;
             }, 500);
-            // add lines
         }
         var targ =  arr_bursts.pop();
         emitter.emit = false;
@@ -441,10 +448,6 @@ function checkBursts() {
         // emitter2.startColor.value = getColor(targ.col);
         emitter2.spawnPos.x = targ.xpos + orbGroup.x;
         emitter2.spawnPos.y = targ.ypos + orbGroup.y - 20;
-        
-        filter_to =  setTimeout(()=> {
-            //app.stage.filters = [];
-            }, 1000);
         emitter.emit = true;
         emitter2.emit = true;
     }
@@ -454,6 +457,7 @@ function drawLevel() {
     level_container.alpha = 0;
 
     app.stage.addChild(level_container);
+    // level graphic
     level = PIXI.Sprite.fromImage(require('../img/level1@2x.png'));
     level_container.addChild(level);
     level.interactive = true;
@@ -462,16 +466,21 @@ function drawLevel() {
     level.x = 320 / 2;
     level.y = 568 / 2;
     level.on('pointerdown', onStart);
+
     TweenMax.set(level_container, {y: -568});
 
     lvl_texture1 = PIXI.Texture.fromImage(require('../img/level1@2x.png'));
     lvl_texture2 = PIXI.Texture.fromImage(require('../img/level2@2x.png'));
     lvl_texture3 = PIXI.Texture.fromImage(require('../img/level3@2x.png'));
     lvl_texture4 = PIXI.Texture.fromImage(require('../img/level4@2x.png'));
-    animLevel()
+     setTimeout(()=> {
+         animLevel()
+         }, 2000);
 }
 function animLevel() {
     console.log('level idx', level_idx);
+    scoreOrb.textures = texture_arrays[level_idx];
+    scoreOrb.gotoAndStop(1);
     switch (level_idx) {
         case 0:
             level.texture = lvl_texture1;
@@ -488,9 +497,19 @@ function animLevel() {
     } 
     TweenMax.to(level_container, 0.3, {alpha: 1});
     TweenMax.set(level_container, {y: 0});
+    window.showBg();
+    ui_container.alpha = 0;
+    bt_help.alpha = 0;
 }
 function onStart() {
     TweenMax.to(level_container, 0.3, {alpha: 0, y: -568});
+    window.hideBg();
+    TweenMax.set(ui_container, {x: 50, alpha: 0});
+    TweenMax.to(ui_container, 0.3, {alpha: 1, delay: 0.5});
+    TweenMax.to(ui_container, 0.3, {x: 0, delay: 0.5, ease: Back.easeOut});
+    TweenMax.set(bt_help, {x: -50, alpha: 0});
+    TweenMax.to(bt_help, 0.3, {alpha: 1, delay: 0.5});
+    TweenMax.to(bt_help, 0.3, {x: 0, delay: 0.5, ease: Back.easeOut});
 }
 function addCp() {
     cp_good = PIXI.Sprite.fromImage(require('../img/cp_good.png'));
@@ -544,15 +563,8 @@ function showCp(idx) {
     targ.scale.x = targ.scale.y = 0.5;
     TweenMax.to(targ.scale, 1, {x: 0.7, y: 0.7});
     TweenMax.to(targ, 1, { alpha: 0});
-     setTimeout(()=> {
-
-         }, 500);
 }
-var sprite1_images, sprite2_images, sprite3_images, sprite4_images;
-var sprite1_array, sprite2_array, sprite3_array, sprite4_array;
-var texture_arrays;
 function createAnimSprites() {
-
     sprite1_images = [require('../img/1b.png'), require('../img/1a.png')];
     sprite2_images = [require('../img/2b.png'), require('../img/2a.png')];
     sprite3_images = [require('../img/3b.png'), require('../img/3a.png')];
@@ -573,6 +585,7 @@ function createAnimSprites() {
         sprite4_array.push(texture);
     };
     texture_arrays = [sprite1_array,sprite2_array,sprite3_array,sprite4_array];
+    console.log('', texture_arrays);
 }
 function drawField(){
 
@@ -588,9 +601,15 @@ function drawField(){
 
     orbGroup.x = 40;
     orbGroup.y = 100;
-
+    anim_sprites = {};
+    anim_sprites_id = 0;
     createAnimSprites();
-    reposOrbs();
+     setTimeout(()=> {
+         reposOrbs();
+         orbGroup.x = (320 - orbGroup.width) / 2;
+         orbGroup.y = (568 - orbGroup.height) / 2 + 70;
+         }, 2000);
+
 
     selectedOrb = null;
     hand = PIXI.Sprite.fromImage(require('../img/hand.png'));
@@ -598,39 +617,44 @@ function drawField(){
     handGroup.addChild(hand);
     hand.scale.set(0.3)
     hand.visible = false;
-    orbGroup.x = (320 - orbGroup.width) / 2;
-    orbGroup.y = (568 - orbGroup.height) / 2 + 70;
+
     window.showSuggestion = showSuggestion;
+}
+function animOrbs() {
+    Object.entries(anim_sprites).forEach(([key, value]) => {
+        if (Math.random() > 0.98) {
+            value.gotoAndStop(2);
+            setTimeout(()=> {
+                value.gotoAndStop(1);
+            }, (Math.random() * 300) + 100);
+        }
+    });
 }
 function reposOrbs() {
     for(var i = 0; i < fieldSize; i ++){
         gameArray[i] = [];
         for(var j = 0; j < fieldSize_col; j ++){
-            //let orb = PIXI.Sprite.fromImage(require('../img/star.png'));
             let orb = new PIXI.extras.AnimatedSprite(sprite4_array);
-
             orb.x = orbSize * j + orbSize / 2;
             orb.y = orbSize * i + orbSize / 2;
             orb.width = orbSize;
             orb.height = orbSize;
             orb.anchor.set(0.5, 1);
             orbGroup.addChild(orb);
-            orb.alpha = 0;
+            setTimeout(()=> {
+                orb.gotoAndStop(1);
+            }, 1000);
 
+            orb.alpha = 0;
+            anim_sprites[anim_sprites_id++] = orb;
             setTimeout(()=> {
                 TweenMax.to(orb, 0.3, {alpha: 1, delay: 0.5});
             }, 1000);
 
             do{
                 var randomColor = Math.floor(Math.random() * orbColors) + 1;
-                orb.frame = randomColor;
-                
-                console.log('', randomColor);
-                // let texture = PIXI.Texture.fromImage(require('../img/0' + (randomColor) + '@2x.png'));
-
                 let texture = texture_arrays[randomColor-1];
                 orb.textures = texture;
-
                 gameArray[i][j] = {
                     orbColor: randomColor,
                     orbSprite: orb
@@ -655,22 +679,15 @@ function showSuggestion(){
         for(var j = 0; j < fieldSize_col - 1; j ++){
             tmpSwap(i, j, i + 1, j);
             if(matchInBoard()){
-                hand.visible = true;
-                hand.x = gameArray[i + 1][j].orbSprite.x + 16;
-                hand.y = gameArray[i + 1][j].orbSprite.y + 70;
+
                 matchFound = true;
                 arr_matches.push({orb1: gameArray[i][j].orbSprite, orb2: gameArray[i+1][j].orbSprite});
 
             }
             tmpSwap(i, j, i + 1, j);
-            if(matchFound){
-                //return;
-            }
             tmpSwap(i, j, i, j + 1);
             if(matchInBoard()){
-                hand.visible = true;
-                hand.x = gameArray[i][j + 1].orbSprite.x + 16;
-                hand.y = gameArray[i][j + 1].orbSprite.y + 70;
+
                 matchFound = true;
                 arr_matches.push({orb1: gameArray[i][j].orbSprite, orb2: gameArray[i][j+1].orbSprite});
             }
@@ -693,21 +710,18 @@ function tmpSwap(row1, col1, row2, col2){
     gameArray[row1][col1] = gameArray[row2][col2];
     gameArray[row2][col2] = tmp;
 }
-
-var pickedOrb;
-
-var orb1, orb2;
+function mouseDown(e) {
+    mouseIsDown = true;
+}
+function mouseUp(e) {
+    mouseIsDown = false;
+}
 function orbSelect(e){
-    //console.log('move', e);
-    if(canPick){
-
+    if(canPick && mouseIsDown){
         var mousePosition = app.renderer.plugins.interaction.eventData.data.global;
-        //console.log('', mousePosition);
-
         hand.visible = false;
         var touchy = mousePosition.y - orbGroup.y;
         var touchx =  mousePosition.x - orbGroup.x;
-        //console.log('', touchy);
         var row = Math.floor((touchy - (orbGroup.y)) / orbSize) + 2;
         var col = Math.floor((touchx - orbGroup.x) / orbSize);
         row +=1;
@@ -719,8 +733,6 @@ function orbSelect(e){
 
         // if valid pickedorb
         if (orb1 != -1) {
-           //console.log('orb1', orb1);
-
            if (selectedOrb == orb1) {
                //console.log('same');
            } else {
@@ -738,11 +750,9 @@ function orbSelect(e){
 }
 
 function orbDeselect(e){
-    //console.log('DESELECT *********', );
     pickedOrb = -1;
     selectedOrb = null;
     orb1 = -1;
-    // game.input.deleteMoveCallback(orbMove);
 }
 
 function orbMove(event, pX, pY){
@@ -877,12 +887,9 @@ function handleMatches(){
     }
     handleHorizontalMatches();
     handleVerticalMatches();
-    //console.log('SCORE', score);
     updateScore(score);
     checkScore();
-    //console.log('removeMap', removeMap);
     destroyOrbs();
-    //console.log('', gameArray);
 }
 
 function handleVerticalMatches(){
@@ -896,8 +903,6 @@ function handleVerticalMatches(){
             }
             if(gemAt(j, i).orbColor != currentColor || j == fieldSize - 1){
                 if(colorStreak >= 3){
-                    console.log('currentColor', currentColor);
-                    console.log('targetcolor', targetColor);
                     //console.log("VERTICAL :: Length = "+colorStreak + " :: Start = ("+startStreak+","+i+") :: Color = "+currentColor);
                     if (currentColor == targetColor) {
                         console.log('***** SCORE', );
@@ -906,11 +911,7 @@ function handleVerticalMatches(){
                         setTimeout(()=> {
                             flash_effect = false;
                         }, 400);
-                    } else {
-
-                        //flash_effect = false;
                     }
-
                     for(var k = 0; k < colorStreak; k++){
                         removeMap[startStreak + k][i] ++;
                     }
@@ -921,7 +922,6 @@ function handleVerticalMatches(){
             }
         }
     }
-
 }
 
 function handleHorizontalMatches(){
@@ -942,8 +942,6 @@ function handleHorizontalMatches(){
                          setTimeout(()=> {
                                 flash_effect = false;
                              }, 400);
-                    } else {
-                        //flash_effect = false;
                     }
                     //console.log("HORIZONTAL :: Length = "+colorStreak + " :: Start = ("+i+","+startStreak+") :: Color = "+currentColor);
                     for(var k = 0; k < colorStreak; k++){
@@ -956,7 +954,6 @@ function handleHorizontalMatches(){
             }
         }
     }
-
 }
 
 function destroyOrbs(){
@@ -964,15 +961,11 @@ function destroyOrbs(){
     for(var i = 0; i < fieldSize; i++){
         for(var j = 0; j < fieldSize_col; j++){
             if(removeMap[i][j]>0){
-
                 var orbsprite = gameArray[i][j].orbSprite;
                 burst(orbsprite.x, orbsprite.y, gameArray[i][j].orbColor, orbsprite);
-           
                 tween5 = TweenMax.to(orbsprite, destroySpeed, {alpha: 0, onComplete: function() {
                         orbGroup.removeChild(this.target)
                         this.target.destroy();
-                        // console.log('', orbsprite.x, orbsprite.y);
-                        // burst(gameArray[i][j].orbSprite.x, gameArray[i][j].orbSprite.y-20)
                         destroyed --;
                         if(destroyed == 0){
                             if (levelIsOver) {
@@ -1005,7 +998,6 @@ function makeOrbsFall(){
                         fallTiles = 1;
                         restart = true;
                     }
-
                     var sprite = gameArray[i][j].orbSprite;
                     tween6 = TweenMax.to(sprite.scale, 0.2, {y: 0.25, delay: 0.2});
                     tween7 = TweenMax.to(sprite.scale, 0.8, {y: 0.3, ease: Elastic.easeOut.config(1.5, 0.3), delay:0.4});
@@ -1050,20 +1042,13 @@ function replenishField(){
     var restart = false;
     for(var j = 0; j < fieldSize_col; j++){
         var emptySpots = holesInCol(j);
-
-
         if(emptySpots > 0){
             if(!fastFall && emptySpots > 1){
                 emptySpots = 1;
                 restart = true;
             }
-
-            // console.log('', emptySpots);
-
             for(var i = 0; i < emptySpots; i++){
-
-                let orb = new PIXI.extras.AnimatedSprite(sprite4_array);
-
+                let orb = new PIXI.extras.AnimatedSprite(sprite1_array);
                 orb.x = orbSize * j + orbSize / 2;
                 orb.y = -40 * (emptySpots-i);
                 orb.width = orbSize;
@@ -1071,19 +1056,18 @@ function replenishField(){
                 orb.anchor.set(0.5, 1);
                 orbGroup.addChild(orb);
                 orb.alpha = 0;
-
+                anim_sprites[anim_sprites_id++] = orb;
 
                 var randomColor = Math.floor(Math.random() * orbColors) + 1;
                 let texture = texture_arrays[randomColor-1];
                 orb.textures = texture;
-
+                orb.gotoAndStop(1);
                 gameArray[i][j] = {
                     orbColor: randomColor,
                     orbSprite: orb
                 };
 
                 var sprite = gameArray[i][j].orbSprite;
-                var targScale =  sprite.transform.scale.x;
                 tween9 = TweenMax.to(sprite.scale, 0.1, {y: 0.25, delay: 0.2});
                 tween10 = TweenMax.to(sprite.scale, 0.8, {y: 0.3, ease: Elastic.easeOut.config(1.5, 0.3), delay:0.3 });
 
