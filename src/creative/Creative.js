@@ -92,5 +92,5 @@ var creative = {
     }
 };
 
-creative.init({container:'#creative_container', width: 320, height: 568});
+// creative.init({container:'#creative_container', width: 320, height: 568});
 export default creative;
