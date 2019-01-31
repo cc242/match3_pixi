@@ -35,10 +35,10 @@ class Layout extends EventEmitter {
     saveDimensions() {
         savedDimensions.w = this.isPortrait() ? window.innerWidth : window.innerHeight;
         savedDimensions.h = this.isPortrait() ? window.innerHeight : window.innerWidth;
-        console.log('savedDimensions', savedDimensions);
+        //console.log('savedDimensions', savedDimensions);
     }
     resize() {
-        console.log('WINDOW RESIZING 2', window.innerWidth, window.innerHeight, _width+'px', _height+'px');
+        console.log('WINDOW RESIZING', window.innerWidth, window.innerHeight, _width+'px', _height+'px');
         if (this.isPortrait()) {
             document.body.classList.add('portrait');
             document.body.classList.remove('landscape');
